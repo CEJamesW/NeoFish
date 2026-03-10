@@ -100,21 +100,36 @@ async def run_agent_loop(pm: PlaywrightManager, user_instruction: str, ws_send_m
     max_steps = 15
     is_finished = False
     
-    # First user message includes instruction and any user-provided images
-    user_content = [{"type": "text", "text": f"Please execute this task: {user_instruction}"}]
-    
-    # Inject user-provided images as vision blocks
-    for data_url in images:
-        # data_url format: "data:<media_type>;base64,<data>"
-        try:
-            header, b64_data = data_url.split(",", 1)
-            media_type = header.split(":")[1].split(";")[0]  # e.g. image/png
-            user_content.append({
-                "type": "image",
-                "source": {"type": "base64", "media_type": media_type, "data": b64_data}
-            })
-        except Exception as e:
-            print(f"Failed to parse image data-URL: {e}")
+    # First user message: if user supplied images, present them first with an
+    # explicit label so the model understands these are direct reference images
+    # (not page screenshots) and should be examined before any tool use.
+    if images:
+        user_content = [{
+            "type": "text",
+            "text": (
+                f"The user has attached {len(images)} image(s) directly to their request. "
+                "Please examine each image carefully first, then complete the task below.\n\n"
+                f"Task: {user_instruction}"
+            )
+        }]
+        for data_url in images:
+            try:
+                header, b64_data = data_url.split(",", 1)
+                media_type = header.split(":")[1].split(";")[0]  # e.g. image/png
+                user_content.append({
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": media_type, "data": b64_data}
+                })
+            except Exception as e:
+                print(f"Failed to parse image data-URL: {e}")
+        # Remind the model that the images above are user-provided
+        user_content.append({
+            "type": "text",
+            "text": "The images above were provided by the user. Answer based on them directly if the task is about image content. Only browse the web if the task explicitly requires it."
+        })
+    else:
+        user_content = [{"type": "text", "text": f"Please execute this task: {user_instruction}"}]
+
     
     for step in range(max_steps):
         # 1. Observe (Append observation to the pending user_content)
