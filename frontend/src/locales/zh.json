@@ -21,8 +21,18 @@
   },
   "sidebar": {
     "explore": "探索",
-    "chat": "对话",
+    "chat": "对话历史",
     "gallery": "图库",
     "settings": "设置"
+  },
+  "history": {
+    "panel_title": "对话列表",
+    "new_chat": "新建对话",
+    "empty_state": "暂无对话记录",
+    "rename_placeholder": "输入对话标题...",
+    "rename": "重命名",
+    "delete": "删除",
+    "yesterday": "昨天",
+    "days_ago": "{n} 天前"
   }
 }

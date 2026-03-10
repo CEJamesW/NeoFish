@@ -21,8 +21,18 @@
   },
   "sidebar": {
     "explore": "Explore",
-    "chat": "Chat",
+    "chat": "Chat History",
     "gallery": "Gallery",
     "settings": "Settings"
+  },
+  "history": {
+    "panel_title": "Chats",
+    "new_chat": "New Chat",
+    "empty_state": "No conversations yet",
+    "rename_placeholder": "Enter chat title...",
+    "rename": "Rename",
+    "delete": "Delete",
+    "yesterday": "Yesterday",
+    "days_ago": "{n} days ago"
   }
 }

@@ -1,12 +1,48 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import MainInput from './components/MainInput.vue'
+import { useChatHistory } from './composables/useChatHistory'
 
-// WebSocket setup
+const { sessions, activeChatId, loadSessions, createNewChat, refreshSession } = useChatHistory()
+
+// ─── WebSocket ─────────────────────────────────────────────────────────────
 const ws = ref<WebSocket | null>(null)
-const messages = ref<any[]>([])
 const isConnected = ref(false)
+
+function connectWs(sessionId: string) {
+  if (ws.value) {
+    ws.value.onclose = null  // prevent auto-reconnect on intentional close
+    ws.value.close()
+  }
+
+  const socket = new WebSocket(`ws://localhost:8000/ws/agent?session_id=${sessionId}`)
+  ws.value = socket
+
+  socket.onopen = () => {
+    isConnected.value = true
+  }
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data)
+    // If server echoes back a session_id (on connection), sync it
+    if (data.session_id && data.session_id !== activeChatId.value) {
+      activeChatId.value = data.session_id
+    }
+    pushMessage(data)
+  }
+
+  socket.onclose = () => {
+    isConnected.value = false
+    // Re-connect after 3s
+    setTimeout(() => {
+      if (activeChatId.value) connectWs(activeChatId.value)
+    }, 3000)
+  }
+}
+
+// ─── Messages for current session ─────────────────────────────────────────
+const messages = ref<any[]>([])
 const hasStarted = ref(false)
 const scrollContainer = ref<HTMLElement | null>(null)
 
@@ -18,63 +54,98 @@ function scrollToBottom() {
   })
 }
 
-watch(messages, () => {
-  scrollToBottom()
-}, { deep: true })
+watch(messages, scrollToBottom, { deep: true })
 
-function connectWs() {
-  ws.value = new WebSocket('ws://localhost:8000/ws/agent')
-  
-  ws.value.onopen = () => {
-    isConnected.value = true
-    console.log('WebSocket connected')
-  }
-  
-  ws.value.onmessage = (event) => {
-    const data = JSON.parse(event.data)
-    messages.value.push(data)
-    console.log('Message from server:', data)
-  }
-  
-  ws.value.onclose = () => {
-    isConnected.value = false
-    console.log('WebSocket disconnected')
-    // Attempt to reconnect in 3s
-    setTimeout(connectWs, 3000)
+function pushMessage(data: any) {
+  messages.value.push(data)
+  // Update sidebar preview after agent/user messages
+  if (activeChatId.value && (data.type === 'info' || data.type === 'user')) {
+    const preview = (data.message || '').slice(0, 80)
+    refreshSession(activeChatId.value, { preview })
   }
 }
 
-onMounted(() => {
-  connectWs()
-})
+// ─── Session switching ─────────────────────────────────────────────────────
+const { loadMessages } = useChatHistory()
 
-onUnmounted(() => {
-  if (ws.value) {
-    ws.value.close()
+async function switchToSession(id: string) {
+  activeChatId.value = id
+  messages.value = []
+  hasStarted.value = false
+
+  // Load existing messages from backend
+  const hist = await loadMessages(id)
+  if (hist.length > 0) {
+    hasStarted.value = true
+    messages.value = hist.map(m => ({
+      type: m.role === 'user' ? 'user' : 'info',
+      message: m.content
+    }))
   }
-})
 
+  connectWs(id)
+}
+
+// ─── New chat ──────────────────────────────────────────────────────────────
+async function handleNewChat() {
+  // createNewChat already called in Sidebar → we just switch to the new active session
+  messages.value = []
+  hasStarted.value = false
+  if (activeChatId.value) {
+    connectWs(activeChatId.value)
+  }
+}
+
+// ─── User submit ───────────────────────────────────────────────────────────
 function handleUserSubmit(query: string) {
   hasStarted.value = true
-  messages.value.push({ type: 'user', message: query })
+  pushMessage({ type: 'user', message: query })
   if (ws.value && isConnected.value) {
     ws.value.send(JSON.stringify({ type: 'user_input', message: query }))
+  }
+  // Update title of session in sidebar to first message
+  const sid = activeChatId.value
+  const session = sessions.value.find(s => s.id === sid)
+  if (sid && session && (!session.title || session.title === 'New Chat')) {
+    refreshSession(sid, { title: query.slice(0, 40) })
   }
 }
 
 function resumeAgent() {
   if (ws.value && isConnected.value) {
     ws.value.send(JSON.stringify({ type: 'resume' }))
-    messages.value.push({ type: 'info', message: '已发送继续执行指令。' })
+    pushMessage({ type: 'info', message: '已发送继续执行指令。' })
   }
 }
+
+// ─── Lifecycle ─────────────────────────────────────────────────────────────
+onMounted(async () => {
+  await loadSessions()
+  if (sessions.value.length > 0 && sessions.value[0]) {
+    await switchToSession(sessions.value[0].id)
+  } else {
+    const session = await createNewChat()
+    connectWs(session.id)
+  }
+})
+
+onUnmounted(() => {
+  if (ws.value) {
+    ws.value.onclose = null
+    ws.value.close()
+  }
+})
 </script>
 
 <template>
   <div class="h-screen w-full flex bg-[#FDFBF7] font-sans selection:bg-neutral-200">
-    <Sidebar />
+    <Sidebar
+      @new-chat="handleNewChat"
+      @select-chat="switchToSession"
+    />
     
-    <main class="flex-1 ml-16 flex flex-col relative h-full">
+    <!-- Main content: offset by sidebar icon rail (w-16 = 64px) -->
+    <main class="flex-1 flex flex-col relative h-full" style="margin-left: 64px">
       <!-- Top nav indicator -->
       <header class="absolute top-0 left-0 w-full p-6 flex justify-end z-10 pointer-events-none">
         <div class="flex items-center gap-2 bg-white/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-neutral-200/50 shadow-sm">

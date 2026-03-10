@@ -2,6 +2,7 @@ CLAUDE.md
 reference/
 .vscode/
 .env
+sessions.json
 
 # Vue
 node_modules/
