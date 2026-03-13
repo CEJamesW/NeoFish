@@ -201,6 +201,22 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_images = payload.get("images", [])  # list of base64 data-URLs
                 _append_message("user", user_msg, images=user_images)
 
+                # Build conversation history from session messages
+                history_messages = []
+                for m in sessions[session_id]["messages"][:-1]:  # Exclude current message
+                    role = m.get("role", "user")
+                    content = m.get("content", "")
+                    if role == "user":
+                        history_messages.append({"role": "user", "content": content or "(user sent an image)"})
+                    else:
+                        # Assistant messages - clean up markers like [Image], [Action Required]
+                        clean_content = content
+                        for prefix in ["[Image] ", "[Action Required] "]:
+                            if clean_content.startswith(prefix):
+                                clean_content = clean_content[len(prefix):]
+                        if clean_content:
+                            history_messages.append({"role": "assistant", "content": clean_content})
+
                 async def ws_send_msg(msg):
                     """Accept str or dict from agent.py and normalize to WS payload."""
                     if isinstance(msg, dict):
@@ -212,7 +228,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     _append_message("assistant", human_text)
                     await websocket.send_text(json.dumps(packet))
 
-                asyncio.create_task(run_agent_loop(pm, user_msg, ws_send_msg, request_human_action, send_image, images=user_images))
+                asyncio.create_task(run_agent_loop(pm, user_msg, ws_send_msg, request_human_action, send_image, images=user_images, history_messages=history_messages))
 
     except WebSocketDisconnect:
         print(f"WebSocket client disconnected (session: {session_id})")

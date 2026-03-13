@@ -3,6 +3,7 @@ reference/
 .vscode/
 .env
 sessions.json
+browser_state/
 
 # Vue
 node_modules/

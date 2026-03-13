@@ -80,7 +80,7 @@ TOOLS = [
     },
     {
         "name": "send_screenshot",
-        "description": "Capture and send the current page screenshot to the user. ONLY use this when: (1) showing final results, (2) significant milestones reached, (3) important visual findings. Do NOT use for routine navigation or intermediate steps. Be selective.",
+        "description": "Capture and send the current page screenshot to the user. ONLY use this when: (1) showing final results, (2) User ask you to show something. Do NOT use for routine navigation or intermediate steps. Be selective.",
         "input_schema": {
             "type": "object",
             "properties": {"description": {"type": "string", "description": "A brief description of what the screenshot shows"}},
@@ -98,14 +98,14 @@ TOOLS = [
     }
 ]
 
-async def run_agent_loop(pm: PlaywrightManager, user_instruction: str, ws_send_msg, ws_request_action, ws_send_image, images: list = []):
+async def run_agent_loop(pm: PlaywrightManager, user_instruction: str, ws_send_msg, ws_request_action, ws_send_image, images: list = [], history_messages: list = []):
     await ws_send_msg({
         "message": f"Agent starting task: {user_instruction}",
         "message_key": "common.agent_starting",
         "params": {"task": user_instruction}
     })
-    
-    messages = []
+
+    messages = history_messages.copy()  # Start with conversation history
     max_steps = 100
     is_finished = False
     

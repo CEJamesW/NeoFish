@@ -1,12 +1,15 @@
 import asyncio
 import base64
+from pathlib import Path
 from typing import Optional, Callable, Awaitable
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+from playwright.async_api import async_playwright, BrowserContext, Page
+
+# Directory to store browser state (cookies, localStorage, etc.)
+BROWSER_STATE_DIR = Path("browser_state")
 
 class PlaywrightManager:
     def __init__(self):
         self.playwright = None
-        self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
         # This event flags if the agent is blocked awaiting human interaction
@@ -14,21 +17,28 @@ class PlaywrightManager:
 
     async def start(self):
         self.playwright = await async_playwright().start()
-        # Use Chromium; running headless=False makes debugging easier, but we can turn it True in production
-        self.browser = await self.playwright.chromium.launch(headless=True)
-        self.context = await self.browser.new_context(
+
+        # Ensure state directory exists
+        BROWSER_STATE_DIR.mkdir(exist_ok=True)
+
+        # Use persistent context to save cookies, localStorage, etc.
+        self.context = await self.playwright.chromium.launch_persistent_context(
+            user_data_dir=str(BROWSER_STATE_DIR),
+            headless=True,
             viewport={'width': 1280, 'height': 800},
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
-        self.page = await self.context.new_page()
+        # Get or create the default page
+        if self.context.pages:
+            self.page = self.context.pages[0]
+        else:
+            self.page = await self.context.new_page()
 
     async def stop(self):
         if self.page:
             await self.page.close()
         if self.context:
             await self.context.close()
-        if self.browser:
-            await self.browser.close()
         if self.playwright:
             await self.playwright.stop()
 
