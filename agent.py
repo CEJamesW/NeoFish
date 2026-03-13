@@ -80,7 +80,7 @@ TOOLS = [
     },
     {
         "name": "send_screenshot",
-        "description": "Capture and send the current page screenshot to the user. Use this to show the user what you see on the page, share visual results, or provide progress updates.",
+        "description": "Capture and send the current page screenshot to the user. ONLY use this when: (1) showing final results, (2) significant milestones reached, (3) important visual findings. Do NOT use for routine navigation or intermediate steps. Be selective.",
         "input_schema": {
             "type": "object",
             "properties": {"description": {"type": "string", "description": "A brief description of what the screenshot shows"}},
@@ -106,7 +106,7 @@ async def run_agent_loop(pm: PlaywrightManager, user_instruction: str, ws_send_m
     })
     
     messages = []
-    max_steps = 15
+    max_steps = 100
     is_finished = False
     
     # First user message: if user supplied images, present them first with an
