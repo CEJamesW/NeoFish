@@ -80,13 +80,11 @@ TOOLS = [
     },
     {
         "name": "send_screenshot",
-        "description": "Send the current page screenshot to the chat for reference or documentation.",
+        "description": "Capture and send the current page screenshot to the user. Use this to show the user what you see on the page, share visual results, or provide progress updates.",
         "input_schema": {
             "type": "object",
-            "properties": {
-                "caption": {"type": "string", "description": "Optional caption to describe the screenshot"}
-            },
-            "required": []
+            "properties": {"description": {"type": "string", "description": "A brief description of what the screenshot shows"}},
+            "required": ["description"]
         }
     },
     {
@@ -100,7 +98,7 @@ TOOLS = [
     }
 ]
 
-async def run_agent_loop(pm: PlaywrightManager, user_instruction: str, ws_send_msg, ws_request_action, images: list = []):
+async def run_agent_loop(pm: PlaywrightManager, user_instruction: str, ws_send_msg, ws_request_action, ws_send_image, images: list = []):
     await ws_send_msg({
         "message": f"Agent starting task: {user_instruction}",
         "message_key": "common.agent_starting",
@@ -199,28 +197,28 @@ async def run_agent_loop(pm: PlaywrightManager, user_instruction: str, ws_send_m
             tool_name = tool.name
             args = tool.input
             result_str = ""
-
+            
             await ws_send_msg({
                 "message": f"Executing action: `{tool_name}` with args: {json.dumps(args, ensure_ascii=False)}",
                 "message_key": "common.executing_action",
                 "params": {"tool": tool_name, "args": json.dumps(args, ensure_ascii=False)}
             })
-
+            
             try:
                 if tool_name == "navigate":
                     await pm.page.goto(args["url"])
                     await asyncio.sleep(2)
                     result_str = "Successfully navigated."
-
+                    
                 elif tool_name == "click":
                     await pm.page.click(args["selector"], timeout=5000)
                     await asyncio.sleep(1)
                     result_str = "Successfully clicked."
-
+                    
                 elif tool_name == "type_text":
                     await pm.page.fill(args["selector"], args["text"])
                     result_str = "Successfully typed text."
-
+                    
                 elif tool_name == "scroll":
                     direction = args.get("direction", "down")
                     if direction == "down":
@@ -229,26 +227,23 @@ async def run_agent_loop(pm: PlaywrightManager, user_instruction: str, ws_send_m
                         await pm.page.mouse.wheel(0, -1000)
                     await asyncio.sleep(1)
                     result_str = "Scrolled."
-
+                    
                 elif tool_name == "request_human_assistance":
                     reason = args.get("reason", "Login required.")
                     await pm.block_for_human(ws_request_action, reason)
                     result_str = "Human has processed the request. Page might have updated. You may resume your task."
-
+                    
                 elif tool_name == "extract_info":
                     result_str = f"Extracted: {args['info_summary']}"
 
                 elif tool_name == "send_screenshot":
-                    caption = args.get("caption", "Current page screenshot")
-                    b64_img = await pm.get_page_screenshot_base64()
-                    result_str = f"Screenshot sent: {caption}"
-
-                    # 发送截图到前端
-                    await ws_send_msg({
-                        "type": "screenshot",
-                        "caption": caption,
-                        "image": b64_img
-                    })
+                    description = args.get("description", "Current page screenshot")
+                    screenshot_b64 = await pm.get_page_screenshot_base64()
+                    if screenshot_b64:
+                        await ws_send_image(description, screenshot_b64)
+                        result_str = f"Screenshot sent to user: {description}"
+                    else:
+                        result_str = "Failed to capture screenshot."
 
                 elif tool_name == "finish_task":
                     report = args.get("report", "Task completed.")
@@ -261,10 +256,10 @@ async def run_agent_loop(pm: PlaywrightManager, user_instruction: str, ws_send_m
                     is_finished = True
                 else:
                     result_str = f"Unknown tool: {tool_name}"
-
+                    
             except Exception as e:
                 result_str = f"Error executing {tool_name}: {str(e)}"
-
+                
             user_content.append({
                 "type": "tool_result",
                 "tool_use_id": tool.id,
