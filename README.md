@@ -90,14 +90,21 @@ npm install
 npm run dev
 ```
 *打开浏览器访问 `http://localhost:5173` 即可开始体验！*
-
 ## 💡 使用场景示例
 
 你可以对 NeoFish 说出以下指令：
 
 - *"帮我打开掘金，搜索 'Vue3 性能优化'，并把前三篇文章的标题和链接总结给我。"*
 - *"进入 Github，查看趋势榜单，截个图发给我。"*
-- *"前往指定网站，帮我填写一份调查问卷..."*
+
+- *"总结oiwiki的kmp内容然后发到小红书上"*
+
+  <img src="docs/readme_img/image.png" alt="NeoFish 接管浏览器" width="800">
+  
+- *"帮我填写一份调查问卷..."*
+
+  <img src="docs/readme_img/image_1.png" alt="NeoFish 接管浏览器" width="800">
+  <img src="docs/readme_img/image_2.png" alt="NeoFish 接管浏览器" width="800">
 
 ## 🤝 参与贡献
 
