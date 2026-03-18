@@ -109,6 +109,7 @@ npm run dev
 - *"根据我的b站视频浏览记录分析我的喜好/作息/行为特点"*
   <img src="docs/readme_img/cd2b0c7107914acea3318078c12d83a4.jpg" alt="NeoFish 接管浏览器" width="800">
   <img src="docs/readme_img/52431414c1a8749059c44c68b32451a1.jpg" alt="NeoFish 接管浏览器" width="800">
+  <img src="docs/readme_img/image_copy.png" alt="NeoFish 接管浏览器" width="800">
 
 ## 🤝 参与贡献
 
