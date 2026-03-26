@@ -332,12 +332,19 @@ class WebAdapter(PlatformAdapter):
             # Capture current URL and initial screenshot before handing over.
             current_url: str = "about:blank"
             try:
-                if self._pm.page and not self._pm.page.is_closed():
-                    current_url = self._pm.page.url
+                page = (
+                    self._pm.tab_manager.get_active_page(self._session_id)
+                    if self._pm.tab_manager
+                    else None
+                )
+                if page and not page.is_closed():
+                    current_url = page.url
             except Exception:
                 pass
 
-            initial_screenshot = await self._pm.get_page_screenshot_base64()
+            initial_screenshot = await self._pm.get_page_screenshot_base64(
+                self._session_id
+            )
 
             await self._ws.send_text(
                 json.dumps(
@@ -360,7 +367,7 @@ class WebAdapter(PlatformAdapter):
             )
 
             # Mark as in takeover and create the completion event.
-            done_event = self._pm.begin_embedded_takeover()
+            done_event = self._pm.begin_embedded_takeover(self._session_id)
 
             # Stream screenshots to the frontend.
             async def send_frame(screenshot_b64: str, url: str) -> None:
@@ -377,7 +384,9 @@ class WebAdapter(PlatformAdapter):
                 except Exception as e:
                     logger.warning("Takeover frame send error: %s", e)
 
-            await self._pm.start_takeover_stream(send_frame, stream_interval=0.5)
+            await self._pm.start_takeover_stream(
+                send_frame, stream_interval=0.5, session_id=self._session_id
+            )
 
             # Block until the user signals "done".
             await done_event.wait()
@@ -389,9 +398,16 @@ class WebAdapter(PlatformAdapter):
             final_url: str = "about:blank"
             final_screenshot: str = ""
             try:
-                if self._pm.page and not self._pm.page.is_closed():
-                    final_url = self._pm.page.url
-                    final_screenshot = await self._pm.get_page_screenshot_base64()
+                page = (
+                    self._pm.tab_manager.get_active_page(self._session_id)
+                    if self._pm.tab_manager
+                    else None
+                )
+                if page and not page.is_closed():
+                    final_url = page.url
+                    final_screenshot = await self._pm.get_page_screenshot_base64(
+                        self._session_id
+                    )
             except Exception:
                 pass
 
