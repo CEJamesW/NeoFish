@@ -89,7 +89,7 @@ uv run uvicorn main:app
 
 说明：
 
-- 如在 macOS / Linux 开发环境中需要热重载，可自行追加 `--reload`，但在 Windows 上可能发生事件循环兼容问题。
+- 如提示安装playwright 可以使用 `uv run playwright install`
 
 ### 5. 启动前端 (UI 界面)
 
